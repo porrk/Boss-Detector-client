@@ -184,5 +184,5 @@ client_demo/
 - **托盘图标不显示**：Windows 需在通知区域设置中显示该图标。
 
 ## 许可
-- 本项目代码：见仓库声明。
+- 本项目代码：**MIT License**，见 [LICENSE](LICENSE)。
 - 第三方：libfacedetection(BSD)、ONNX Runtime(MIT)、SQLite(公有领域)、cJSON(MIT)。许可证随各目录。
