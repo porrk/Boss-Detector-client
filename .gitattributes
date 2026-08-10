@@ -1,0 +1,35 @@
+# 默认：文本文件自动归一化（仓库内 LF，检出按平台）
+* text=auto
+
+# Windows 批处理 / 脚本必须 CRLF（cmd.exe 要求）
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# 源码统一 LF
+*.cpp   text eol=lf
+*.h     text eol=lf
+*.c     text eol=lf
+*.hpp   text eol=lf
+*.txt   text eol=lf
+*.md    text eol=lf
+*.ini   text eol=lf
+*.json  text eol=lf
+*.qrc   text eol=lf
+*.ui    text eol=lf
+CMakeLists.txt text eol=lf
+
+# 二进制文件（不做换行转换）
+*.onnx  binary
+*.dll   binary
+*.lib   binary
+*.pdb   binary
+*.exp   binary
+*.exe   binary
+*.db    binary
+*.jpg   binary
+*.jpeg  binary
+*.png   binary
+*.bmp   binary
+*.webp  binary
+*.ico   binary
