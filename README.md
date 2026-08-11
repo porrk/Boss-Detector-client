@@ -1,188 +1,190 @@
-# 导师/老板检测器 · Windows 客户端（face_client）
+# Boss / Advisor Detector · Windows Client (face_client)
 
-> 当导师/老板出现在摄像头前，客户端右下角立刻弹窗提醒——给你足够的反应时间切屏、端正坐姿、关掉摸鱼窗口。
+> **Language / 语言:** English | [简体中文](README.zh-CN.md)
+
+> When your advisor/boss appears in front of the camera, the client immediately pops up a reminder in the bottom‑right corner — giving you just enough time to switch windows, sit up straight, and close whatever you were slacking off on.
 >
-> 本仓库是**客户端**：维护"要盯的人"模板库，订阅边缘端上报的人脸特征，做余弦比对后按级别弹窗。
+> This repository is the **client**: it maintains the template library of "people to watch", subscribes to face embeddings reported by the edge device, runs cosine comparison, and pops up alerts by level.
 >
-> 🔗 边缘端项目（树莓派/摄像头侧，负责检测+提取特征+MQTT 上报）：
-> **(https://github.com/porrk/Boss-Detector-edge)**
+> 🔗 Edge project (Raspberry Pi / camera side — detection + embedding extraction + MQTT reporting):
+> [**Boss-Detector-edge**](https://github.com/porrk/Boss-Detector-edge)
 
-## 它做什么
+## What it does
 
-1. **入库**：把要盯的人（导师、老板……）的正脸照片录入模板库，本地完成 检测→5点对齐→SFace 提取 128 维特征→L2 归一化→入库。
-2. **监听**：通过 MQTT 订阅边缘端 `facedetect/#` 主题，实时接收检测到的人脸特征（128 维嵌入）。
-3. **比对**：收到特征后与模板库做余弦相似度比对，命中则按该人员的提醒级别弹窗；未命中可按配置弹出"未知人员"提醒。
-4. **聚合**：同一个人可录入多张照片，按检测分数加权平均成一个聚合体，提升识别鲁棒性；新增/聚合时有姓名查重、撞脸检查、相似度过低/过高提示。
-5. **从检测入库**：边缘端抓到的人脸可直接一键入库（预填特征，走同样的查重/聚合流程）。
+1. **Enrollment**: Register front‑face photos of people to watch (advisor, boss, …). Locally performs detection → 5‑point alignment → SFace 128‑D embedding → L2 normalization → store.
+2. **Listening**: Subscribes to the edge device's MQTT `facedetect/#` topic to receive detected face embeddings (128‑D) in real time.
+3. **Comparison**: On receiving an embedding, compares it against the template library by cosine similarity; on a hit, pops an alert at that person's level; on a miss, optionally pops an "unknown person" alert.
+4. **Aggregation**: Multiple photos of the same person are weighted‑averaged (by detection score) into a single aggregate, improving robustness. Name duplicate check, look‑alike check, and low/high similarity hints are performed during enrollment/aggregation.
+5. **Enroll from detection**: Faces captured by the edge device can be enrolled with one click (embedding pre‑filled, going through the same dedup/aggregation flow).
 
-## 功能
+## Features
 
-### ✅ V1：模板库与本地入库
-- **模板库 CRUD**：基于 SQLite，支持新增/编辑/删除/JSON 导入导出，按姓名排序。
-- **本地图片入库**：选图 → libfacedetection 检测（含 5 关键点）→ 相似变换对齐到 112×112 → ONNX Runtime 跑 SFace → L2 归一化 → 入库。
-- **关闭即最小化到托盘**：点关闭按钮隐藏到系统托盘（类 QQ/微信），托盘双击恢复，右键菜单退出。
-- **右下角弹窗**：自绘 Toast，按级别配色、堆叠、定时关闭；工具栏"测试弹窗"可即时验证；设置面板可自定义各级别标题/颜色/时长/声音与消息模板。
-- **单实例**：默认禁止多开。
-- **配置文件**：所有参数走 `config.ini`（INI 格式，UTF-8）。
+### ✅ V1: Template library & local enrollment
+- **Template library CRUD**: Built on SQLite; supports add/edit/delete, JSON import/export, sorted by name.
+- **Local image enrollment**: Pick image → libfacedetection detection (with 5 keypoints) → similarity transform alignment to 112×112 → ONNX Runtime runs SFace → L2 normalization → store.
+- **Close = minimize to tray**: Clicking close hides the app to the system tray (QQ/WeChat‑style); double‑click the tray icon to restore, right‑click for the quit menu.
+- **Bottom‑right toast popups**: Self‑drawn toasts, colored by level, stacked, auto‑closing; the toolbar "Test popup" verifies instantly; the settings panel lets you customize per‑level title / color / duration / sound and message templates.
+- **Single instance**: Multi‑open is disabled by default.
+- **Config file**: All parameters live in `config.ini` (INI format, UTF‑8).
 
-### ✅ V2：MQTT 监听与实时识别
-- **MQTT 订阅**：手写 MQTT 3.1.1 客户端（基于 QTcpSocket，**零外部依赖，无 Paho/OpenSSL**），支持断线自动重连。
-- **实时比对**：收到 128 维特征即与模板库余弦比对，按 `alert_level` 弹窗；未知人脸是否提醒可配置。
-- **冷却去重**：同一 `track_id`/同一人在冷却时间内只提醒一次，防刷屏。
-- **状态栏**：实时显示 MQTT 连接状态与最近一次检测结果。
-- **从检测入库**：工具栏"从检测入库"把最近一次未知检测的特征直接送入入库对话框（预填），无需本地选图。
+### ✅ V2: MQTT listening & real‑time recognition
+- **MQTT subscription**: Hand‑written MQTT 3.1.1 client (built on QTcpSocket, **zero external dependencies — no Paho/OpenSSL**), with auto‑reconnect.
+- **Real‑time comparison**: On receiving a 128‑D embedding, compares it against the template library by cosine similarity and pops an alert by `alert_level`; whether to alert on unknown faces is configurable.
+- **Cooldown dedup**: The same `track_id` / same person alerts only once within the cooldown window to prevent spam.
+- **Status bar**: Shows MQTT connection status and the latest detection result in real time.
+- **Enroll from detection**: The toolbar "Enroll from detection" feeds the latest unknown detection's embedding directly into the enrollment dialog (pre‑filled) — no local image picking needed.
 
-### ✅ 模板聚合（多模板合并）
-- **加权平均聚合**：同一人录入多张照片，按检测置信度加权 `A = normalize(Σ score_i · emb_i)`，存为一行聚合体；识别时对聚合体做最大余弦匹配。
-- **一人一行**：模板表姓名唯一，每人只有一个聚合体与一个提醒级别。
-- **归入现有人员**：新增模板时可选择"归入现有人员"，下拉选人后聚合。
-- **入库安全检查**：
-  - 姓名查重：同名时弹窗选择"同一人(聚合) / 另一人(改名)"。
-  - 撞脸检查：新人与已登记人员相似度 > 0.50 时提示"是否同一人"。
-  - 低相似度警告：新特征与聚合体相似度 < 0.20 提示"可能贴错人"。
-  - 高相似度提示：> 0.95 提示"可能重复录入"。
-  - 样本软上限：每人超过 10 条样本时提示确认。
-- **编辑模式重置**：编辑时重新选图检测 = 把该人员重置为单样本。
+### ✅ Template aggregation (multi‑template merge)
+- **Weighted‑average aggregation**: Multiple photos of one person are weighted by detection confidence `A = normalize(Σ score_i · emb_i)` and stored as a single aggregate row; recognition performs a max‑cosine match against aggregates.
+- **One row per person**: Names are unique in the template table; each person has exactly one aggregate and one alert level.
+- **Merge into existing person**: When adding a template you may choose "merge into existing person", pick from a drop‑down, then aggregate.
+- **Enrollment safety checks**:
+  - Name duplicate: on a duplicate name, a dialog asks "same person (aggregate) / different person (rename)".
+  - Look‑alike check: if a newcomer's similarity to an existing person > 0.50, prompts "is this the same person?".
+  - Low‑similarity warning: if the new embedding's similarity to the aggregate < 0.20, warns "possible mismatch".
+  - High‑similarity hint: > 0.95 hints "possible duplicate enrollment".
+  - Soft sample cap: prompts for confirmation when a person exceeds 10 samples.
+- **Edit‑mode reset**: Re‑picking an image and re‑detecting in edit mode resets that person to a single sample.
 
-## 架构
+## Architecture
 
 ```
 ┌─────────────┐   MQTT(facedetect/#)   ┌──────────────────────────────────┐
-│  边缘端      │ ─────────────────────▶ │  客户端 face_client               │
-│ 摄像头+检测  │  JSON: device_id,      │                                  │
-│ +SFace提取   │  track_id,score,       │  MQTT订阅 → 解析 → 重归一化       │
-│ +上报        │  embedding[128]        │   → 余弦比对模板库(聚合体)        │
-└─────────────┘                        │   → 命中按级别弹窗 / 未知提醒     │
-                                       │  本地图片入库 → 检测→对齐→SFace    │
-                                       │  模板库 SQLite(templates+samples) │
+│  Edge        │ ─────────────────────▶ │  Client face_client              │
+│ camera+detect│  JSON: device_id,      │                                  │
+│ +SFace embed │  track_id,score,       │  MQTT subscribe → parse → renorm │
+│ +report      │  embedding[128]        │   → cosine match vs templates    │
+└─────────────┘                        │   → alert by level / unknown     │
+                                       │  Local image enroll → detect→align→SFace │
+                                       │  Template DB SQLite(templates+samples) │
                                        └──────────────────────────────────┘
 ```
 
-## 技术栈与依赖
-- **C++17 / Qt5**（Widgets、Concurrent、Network）/ MSVC（VS2022）
-- **libfacedetection**（仓库自带，BSD，静态编入；**AVX2 已关闭**以保证最大 CPU 兼容）
-- **ONNX Runtime 1.15.x**（C API version 18，Microsoft MIT，随包 DLL，跑 SFace；**唯一外部运行时依赖**）
-- **SQLite amalgamation 3.46.1**（公有领域，源码内嵌）
-- **cJSON 1.7.18**（MIT，源码内嵌）
-- **MQTT**：手写 3.1.1 协议 over QTcpSocket（无 Paho、无 OpenSSL、无额外 DLL）
+## Tech stack & dependencies
+- **C++17 / Qt5** (Widgets, Concurrent, Network) / MSVC (VS2022)
+- **libfacedetection** (bundled in repo, BSD, statically linked; **AVX2 disabled** for maximum CPU compatibility)
+- **ONNX Runtime 1.15.x** (C API version 18, Microsoft MIT, DLL shipped, runs SFace; **the only external runtime dependency**)
+- **SQLite amalgamation 3.46.1** (public domain, source embedded)
+- **cJSON 1.7.18** (MIT, source embedded)
+- **MQTT**: hand‑written 3.1.1 protocol over QTcpSocket (no Paho, no OpenSSL, no extra DLLs)
 
-> 运行时第三方依赖：仅 `onnxruntime.dll`（随包）。其余均为源码内嵌或 Qt/系统自带。
+> Runtime third‑party dependency: only `onnxruntime.dll` (shipped). Everything else is either source‑embedded or provided by Qt/the OS.
 
-## 构建（Windows + VS2022 + Qt5 + CMake）
+## Build (Windows + VS2022 + Qt5 + CMake)
 
-前置：Visual Studio 2022（含 C++）、CMake、Qt5（msvc2017_64 / msvc2019_64）。
-另需手动放置两个大体积依赖（不入版本控制，见 `third_party/README.md`）：
-1. **ONNX Runtime 1.15.1 win-x64**：解压后把 `include/`、`lib/`、`bin/` 放到 `third_party/onnxruntime/`。
-2. **SFace 模型**：按 `models/README.md` 下载 `face_recognition_sface_2021dec.onnx` 到 `models/`。
+Prerequisites: Visual Studio 2022 (with C++), CMake, Qt5 (msvc2017_64 / msvc2019_64).
+Two large dependencies must be placed manually (not version‑controlled, see `third_party/README.md`):
+1. **ONNX Runtime 1.15.1 win‑x64**: extract and place `include/`, `lib/`, `bin/` into `third_party/onnxruntime/`.
+2. **SFace model**: per `models/README.md`, download `face_recognition_sface_2021dec.onnx` into `models/`.
 
-然后：
-1. 设置 Qt5 路径（任选其一）：
-   - 环境变量：`set QT5_DIR=C:\Qt\5.15.2\msvc2019_64`
-   - 或让 `build.bat` 自动探测常见安装位置
-2. 在项目根目录执行：
+Then:
+1. Set the Qt5 path (either):
+   - Environment variable: `set QT5_DIR=C:\Qt\5.15.2\msvc2019_64`
+   - Or let `build.bat` auto‑detect common install locations
+2. From the project root:
    ```
    build.bat
    ```
-   脚本会：CMake 配置(VS2022 x64) → 构建 → `windeployqt` 打包 Qt 依赖 → 拷贝 ONNX 模型到 `dist\`。
+   The script will: CMake configure (VS2022 x64) → build → `windeployqt` to package Qt deps → copy ONNX models to `dist\`.
 
-产物在 `dist\`：`face_client.exe` + Qt DLLs + `onnxruntime.dll` + `models\*.onnx` + `run.bat`。
+Artifacts land in `dist\`: `face_client.exe` + Qt DLLs + `onnxruntime.dll` + `models\*.onnx` + `run.bat`.
 
-运行：双击 `dist\run.bat` 或 `dist\face_client.exe`。
+Run: double‑click `dist\run.bat` or `dist\face_client.exe`.
 
-> 首次运行会在 exe 同级生成 `config.ini`（从 `assets/default_config.ini` 拷贝）与 `templates.db`。
+> On first run, `config.ini` (copied from `assets/default_config.ini`) and `templates.db` are generated next to the exe.
 
-## 迁移到其他电脑
-把整个 `dist\` 文件夹复制到目标机（Windows x64）即可运行，无需安装。
-- 若提示缺少 `VCRUNTIME140.dll` 等，安装一次 [VC++ 2015-2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)。
-- 目标 CPU 无需支持 AVX2（已关闭）。
+## Migrating to another machine
+Copy the entire `dist\` folder to the target machine (Windows x64) — no installation needed.
+- If it complains about missing `VCRUNTIME140.dll` etc., install the [VC++ 2015‑2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) once.
+- The target CPU does **not** need AVX2 (it is disabled).
 
-## 配置文件 `config.ini`
-首启从内置默认生成，可用任意编辑器修改（改后重启生效；也可在"设置"面板内修改）。关键项：
+## Config file `config.ini`
+Generated from the built‑in default on first launch; edit with any text editor (restart to apply; or change it inside the "Settings" panel). Key entries:
 
-| 节.键 | 说明 |
+| Section.key | Description |
 |---|---|
-| general.minimize_on_close | 1=关闭最小化到托盘 |
-| general.single_instance | 1=禁止多开 |
-| face.model_path | SFace ONNX 模型相对路径 |
-| face.detect_min_score | libfacedetection 检测置信度下限 |
-| face.input_mean / input_std / swap_rb | SFace 预处理（opencv_zoo 约定 127.5 / 128 / RGB） |
-| recognition.threshold | 余弦相似度阈值（越大越严；SFace 经验约 0.363） |
-| recognition.min_detection_score | MQTT payload.score 下限 |
-| recognition.cooldown_seconds | 同 track_id/同人冷却去重（秒） |
-| recognition.alert_on_unknown | 未知人脸是否提醒 |
-| recognition.unknown_alert_level | 未知人员默认提醒级别 |
-| recognition.aggregate_low_threshold | 聚合：新特征与聚合体相似度低于此值警告（默认 0.20） |
-| recognition.aggregate_high_threshold | 聚合：高于此值提示可能重复（默认 0.95） |
-| recognition.face_match_threshold | 新增人员撞脸检查阈值（默认 0.50） |
-| recognition.aggregate_soft_cap | 每人样本数软上限（默认 10） |
-| mqtt.* | MQTT 连接参数（host/port/topic/client_id/username/password/qos/keepalive 等） |
-| notifications.level_N | `标题\|颜色RRGGBB\|停留毫秒(0=不自动关)\|声音1/0` |
-| notifications.known_message / unknown_message | 消息模板，支持 {name} {device_id} {track_id} {score} {time} |
+| general.minimize_on_close | 1 = close minimizes to tray |
+| general.single_instance | 1 = disallow multi‑open |
+| face.model_path | Relative path to the SFace ONNX model |
+| face.detect_min_score | Lower bound for libfacedetection confidence |
+| face.input_mean / input_std / swap_rb | SFace preprocessing (opencv_zoo convention: 127.5 / 128 / RGB) |
+| recognition.threshold | Cosine similarity threshold (higher = stricter; SFace empirical ≈ 0.363) |
+| recognition.min_detection_score | Lower bound for MQTT payload.score |
+| recognition.cooldown_seconds | Cooldown dedup for same track_id/person (seconds) |
+| recognition.alert_on_unknown | Whether to alert on unknown faces |
+| recognition.unknown_alert_level | Default alert level for unknown persons |
+| recognition.aggregate_low_threshold | Aggregation: warn when new embedding's similarity to the aggregate is below this (default 0.20) |
+| recognition.aggregate_high_threshold | Aggregation: hint at possible duplicate above this (default 0.95) |
+| recognition.face_match_threshold | Look‑alike check threshold for new persons (default 0.50) |
+| recognition.aggregate_soft_cap | Soft cap of samples per person (default 10) |
+| mqtt.* | MQTT connection params (host/port/topic/client_id/username/password/qos/keepalive, etc.) |
+| notifications.level_N | `title\|colorRRGGBB\|dwell_ms(0=no auto‑close)\|sound1/0` |
+| notifications.known_message / unknown_message | Message templates, support {name} {device_id} {track_id} {score} {time} |
 
-## 入库说明
+## Enrollment notes
 
-### 本地图片入库
-工具栏"新增模板" → 选择图片 → "检测并提取特征" → 预览带框图 → 选择"新增人员"或"归入现有人员" → 填姓名/级别/备注 → 确定。
-- 新增人员时会自动做姓名查重与撞脸检查。
-- 归入现有人员时会对新特征与聚合体做相似度检查（过低/过高/超上限均弹窗确认）。
+### Local image enrollment
+Toolbar "Add template" → pick an image → "Detect & extract embedding" → preview the framed image → choose "New person" or "Merge into existing person" → fill name/level/note → OK.
+- For new persons, a name duplicate check and a look‑alike check are performed automatically.
+- When merging into an existing person, a similarity check runs against the aggregate (too‑low / too‑high / over cap each prompt for confirmation).
 
-### 从检测入库
-当边缘端检测到未知人员时，工具栏"从检测入库"启用。点击后打开入库对话框并预填该次检测的特征与置信度，流程同上。
+### Enroll from detection
+When the edge device detects an unknown person, the toolbar "Enroll from detection" becomes enabled. Clicking it opens the enrollment dialog pre‑filled with that detection's embedding and score; the flow is the same as above.
 
-### JSON 导入/导出
-用于备份/迁移。格式：
+### JSON import / export
+For backup/migration. Format:
 ```json
-[{"name":"张三","embedding":[...128个float...],
-  "embedding_model":"opencv_sface_2021dec","alert_level":0,"note":"工号1001"}]
+[{"name":"Zhang San","embedding":[...128 floats...],
+  "embedding_model":"opencv_sface_2021dec","alert_level":0,"note":"emp id 1001"}]
 ```
-导入时会**强制再次 L2 归一化**，并为每个模板建立首条样本。
+On import, **L2 normalization is forced again**, and the first sample is created for each template.
 
-## 关于阈值与漏检
+## On thresholds and missed detections
 
-> **重要**：若发现"明明录了人却识别不出来（相似度很低）"，通常**不是阈值问题**，而是**边缘端产生的嵌入与本地入库的嵌入不一致**。
+> **Important**: If you "enrolled someone but recognition keeps failing (very low similarity)", it is usually **not a threshold problem** — it's that **the embedding produced by the edge device is inconsistent with the locally enrolled embedding**.
 
-客户端流水线已验证正确：对齐使用标准 ArcFace 5 点参考 + 相似变换，SFace 预处理为 mean=127.5/std=128/RGB/NCHW，识别用归一化后的点积（=余弦相似度）。若同一人的边缘查询特征与本地模板余弦相似度仅 0.1x（处于陌生人水平），请优先排查**边缘端**的对齐/预处理/模型一致性，而非调低阈值。聚合多张照片可提升鲁棒性，但无法修复边缘端本身的嵌入漂移。
+The client pipeline is verified correct: alignment uses the standard ArcFace 5‑point reference + similarity transform; SFace preprocessing is mean=127.5/std=128/RGB/NCHW; recognition uses the dot product of normalized vectors (= cosine similarity). If the cosine similarity between the edge query embedding and the local template of the same person is only ~0.1x (i.e. stranger level), investigate the **edge device's** alignment/preprocessing/model consistency first, rather than lowering the threshold. Aggregating more photos improves robustness but cannot fix embedding drift at the edge.
 
-## 目录结构
+## Directory layout
 ```
 client_demo/
 ├─ CMakeLists.txt
 ├─ build.bat / run.bat
-├─ assets/default_config.ini       # 配置模板
+├─ assets/default_config.ini       # config template
 ├─ src/
-│  ├─ main.cpp / app.h/cpp         # 装配与单实例
-│  ├─ config.h/cpp                 # config.ini 读写
-│  ├─ db.h/cpp                     # SQLite CRUD + 聚合 + 迁移
+│  ├─ main.cpp / app.h/cpp         # wiring & single instance
+│  ├─ config.h/cpp                 # config.ini read/write
+│  ├─ db.h/cpp                     # SQLite CRUD + aggregation + migration
 │  ├─ face/
-│  │  ├─ align.{h,cpp}             # 5 点相似变换对齐
-│  │  ├─ face_pipeline.{h,cpp}     # 图片→检测→对齐→SFace
-│  │  └─ recognition.{h,cpp}       # 余弦比对/阈值/冷却
-│  ├─ onnx/sface_runner.{h,cpp}    # ONNX Runtime 封装
-│  ├─ net/mqtt_client.{h,cpp}      # 手写 MQTT 3.1.1（QTcpSocket）
-│  ├─ notify/notifier.{h,cpp}      # 识别结果→弹窗映射
+│  │  ├─ align.{h,cpp}             # 5‑point similarity‑transform alignment
+│  │  ├─ face_pipeline.{h,cpp}     # image → detect → align → SFace
+│  │  └─ recognition.{h,cpp}       # cosine match / threshold / cooldown
+│  ├─ onnx/sface_runner.{h,cpp}    # ONNX Runtime wrapper
+│  ├─ net/mqtt_client.{h,cpp}      # hand‑written MQTT 3.1.1 (QTcpSocket)
+│  ├─ notify/notifier.{h,cpp}      # recognition result → toast mapping
 │  └─ ui/
-│     ├─ main_window.{h,cpp}       # 主窗：模板表 + 工具栏 + 状态栏
-│     ├─ template_dialog.{h,cpp}   # 入库/聚合/查重/撞脸
-│     ├─ settings_dialog.{h,cpp}   # 设置面板
-│     └─ toast_window.{h,cpp}      # 右下角自绘弹窗
-├─ libfacedetection/               # 静态编入
+│     ├─ main_window.{h,cpp}       # main window: template table + toolbar + status bar
+│     ├─ template_dialog.{h,cpp}   # enroll / aggregate / dedup / look‑alike
+│     ├─ settings_dialog.{h,cpp}   # settings panel
+│     └─ toast_window.{h,cpp}      # self‑drawn bottom‑right toast
+├─ libfacedetection/               # statically linked
 ├─ third_party/
-│  ├─ onnxruntime/                 # ❌ 手动下载（见 third_party/README.md）
-│  ├─ sqlite/  cjson/              # ✅ 源码内嵌
-│  └─ paho/                        # 占位（未使用，MQTT 走 Qt）
+│  ├─ onnxruntime/                 # ❌ manual download (see third_party/README.md)
+│  ├─ sqlite/  cjson/              # ✅ source embedded
+│  └─ paho/                        # placeholder (unused; MQTT goes through Qt)
 ├─ models/
-│  ├─ README.md                    # 模型下载地址 + SHA-256
-│  └─ *.onnx                       # ❌ 手动下载
-└─ dist/                           # 构建产物（不入库）
+│  ├─ README.md                    # model download URL + SHA‑256
+│  └─ *.onnx                       # ❌ manual download
+└─ dist/                           # build artifacts (not in repo)
 ```
 
-## 常见问题
-- **入库提示"SFace 模型未加载"**：检查 `config.ini` 的 `face.model_path` 与 `dist\models\` 下模型是否存在。
-- **识别不出已入库的人（相似度很低）**：见上文"关于阈值与漏检"，多为边缘端嵌入不一致，而非阈值。
-- **检测置信度偏低导致入库失败**：调低 `face.detect_min_score`，或使用正脸、清晰、光照良好的图片。
-- **MQTT 连不上**：检查 `config.ini` 的 `mqtt.host/port/username/password`，以及网络连通性。
-- **托盘图标不显示**：Windows 需在通知区域设置中显示该图标。
+## FAQ
+- **Enrollment says "SFace model not loaded"**: check `config.ini`'s `face.model_path` and whether the model exists under `dist\models\`.
+- **Can't recognize an enrolled person (very low similarity)**: see "On thresholds and missed detections" above — usually edge‑side embedding inconsistency, not the threshold.
+- **Enrollment fails due to low detection confidence**: lower `face.detect_min_score`, or use a front‑facing, sharp, well‑lit photo.
+- **MQTT won't connect**: check `config.ini`'s `mqtt.host/port/username/password` and network connectivity.
+- **Tray icon not showing**: on Windows, enable the icon in the notification‑area settings.
 
-## 许可
-- 本项目代码：**MIT License**，见 [LICENSE](LICENSE)。
-- 第三方：libfacedetection(BSD)、ONNX Runtime(MIT)、SQLite(公有领域)、cJSON(MIT)。许可证随各目录。
+## License
+- This project's code: **MIT License**, see [LICENSE](LICENSE).
+- Third party: libfacedetection (BSD), ONNX Runtime (MIT), SQLite (public domain), cJSON (MIT). Licenses live in their respective directories.
