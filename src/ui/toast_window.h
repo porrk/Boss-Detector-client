@@ -18,11 +18,13 @@ public:
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
 private:
     ToastWindow(const QString& title, const QString& msg, const QColor& color,
                 int durationMs, const QString& actionLabel, std::function<void()> onAction);
     void relayoutAll();
     QRect actionRect() const;
+    QRect closeRect() const;
 
     QString title_;
     QString msg_;
@@ -31,5 +33,6 @@ private:
     QString actionLabel_;
     std::function<void()> onAction_;
     QRect   actionRect_;
+    bool    closeHover_ = false;
     class QTimer* timer_ = nullptr;
 };

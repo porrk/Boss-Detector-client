@@ -22,6 +22,7 @@ static constexpr int kMargin   = 14;
 static constexpr int kPad      = 12;
 static constexpr int kAccent   = 5;
 static constexpr int kGap      = 8;
+static constexpr int kClose    = 18;   // 右上角关闭按钮尺寸
 
 ToastWindow::ToastWindow(const QString& title, const QString& msg, const QColor& color,
                          int durationMs, const QString& actionLabel,
@@ -34,13 +35,14 @@ ToastWindow::ToastWindow(const QString& title, const QString& msg, const QColor&
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_DeleteOnClose);
     setFocusPolicy(Qt::NoFocus);
+    setMouseTracking(true);   // 供关闭按钮 hover 高亮
     setFixedWidth(kToastW);
 
     // 计算高度
     QFont tf = font(); tf.setBold(true); tf.setPointSize(10);
     QFont mf = font(); mf.setPointSize(9);
     QFontMetrics tm(tf), mm(mf);
-    int textW = kToastW - kPad * 2 - kAccent;
+    int textW = kToastW - kPad * 2 - kAccent - kClose - 4;  // 右侧避开关闭按钮
     QRect titleRect = tm.boundingRect(QRect(0, 0, textW, 0), Qt::TextWordWrap, title_);
     QRect msgRect   = mm.boundingRect(QRect(0, 0, textW, 0), Qt::TextWordWrap, msg_);
     int h = kPad + titleRect.height() + 4 + msgRect.height();
@@ -129,7 +131,7 @@ void ToastWindow::paintEvent(QPaintEvent*) {
     p.setFont(tf);
     p.setPen(QColor(245, 245, 245));
     int textX = kAccent + kPad;
-    int textW = width() - textX - kPad;
+    int textW = width() - textX - kPad - kClose - 4;  // 右侧避开关闭按钮
     QFontMetrics tm(tf);
     QRect titleRect = tm.boundingRect(QRect(textX, kPad, textW, 0), Qt::TextWordWrap, title_);
     p.drawText(titleRect, Qt::AlignLeft | Qt::TextWordWrap, title_);
@@ -155,13 +157,37 @@ void ToastWindow::paintEvent(QPaintEvent*) {
         p.drawText(ar, Qt::AlignCenter, actionLabel_);
         actionRect_ = ar;
     }
+
+    // 右上角关闭按钮 ×
+    QRect cr = closeRect();
+    QPainterPath cp;
+    cp.addRoundedRect(cr, 4, 4);
+    p.setPen(Qt::NoPen);
+    p.setBrush(closeHover_ ? QColor(255, 255, 255, 45) : QColor(255, 255, 255, 0));
+    p.drawPath(cp);
+    QPen xpen(closeHover_ ? QColor(255, 255, 255) : QColor(170, 170, 170));
+    xpen.setWidthF(1.4);
+    p.setPen(xpen);
+    int m = 5;
+    p.drawLine(cr.left() + m, cr.top() + m, cr.right() - m, cr.bottom() - m);
+    p.drawLine(cr.right() - m, cr.top() + m, cr.left() + m, cr.bottom() - m);
+}
+
+QRect ToastWindow::closeRect() const {
+    return QRect(width() - kPad - kClose, kPad / 2, kClose, kClose);
 }
 
 void ToastWindow::mousePressEvent(QMouseEvent* e) {
-    if (e->button() == Qt::LeftButton) {
-        if (!actionLabel_.isEmpty() && actionRect_.contains(e->pos())) {
-            if (onAction_) onAction_();
-        }
-        close();
+    if (e->button() != Qt::LeftButton) return;
+    if (closeRect().contains(e->pos())) { close(); return; }       // 点 × 关闭
+    if (!actionLabel_.isEmpty() && actionRect_.contains(e->pos())) {
+        if (onAction_) onAction_();
     }
+    close();   // 点空白处也可关闭
+}
+
+void ToastWindow::mouseMoveEvent(QMouseEvent* e) {
+    bool h = closeRect().contains(e->pos());
+    if (h != closeHover_) { closeHover_ = h; update(); }
+    setCursor(h ? Qt::PointingHandCursor : Qt::ArrowCursor);
 }
